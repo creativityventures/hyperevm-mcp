@@ -3,6 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import * as hlFunding from "./tools/hl_funding.js";
 import * as hlMarket from "./tools/hl_market.js";
+import * as hlOrderbook from "./tools/hl_orderbook.js";
 import * as hlStaking from "./tools/hl_staking.js";
 import * as fees from "./tools/hyperevm_fees.js";
 import * as poolHistory from "./tools/hyperevm_pool_history.js";
@@ -22,7 +23,7 @@ import { registerPrompts } from "./prompts.js";
  * stdout belongs to the MCP protocol. Anything diagnostic goes to stderr.
  */
 
-const VERSION = "1.2.0";
+const VERSION = "1.3.0";
 
 /** Every tool is read-only and touches only public endpoints. */
 const READ_ONLY = {
@@ -121,6 +122,17 @@ async function main(): Promise<void> {
       annotations: { title: "Funding history", ...READ_ONLY },
     },
     async (args) => text(await guard(hlFunding.name, () => hlFunding.run(args))),
+  );
+
+  server.registerTool(
+    hlOrderbook.name,
+    {
+      title: "Order book depth",
+      description: hlOrderbook.description,
+      inputSchema: hlOrderbook.inputSchema,
+      annotations: { title: "Order book depth", ...READ_ONLY },
+    },
+    async (args) => text(await guard(hlOrderbook.name, () => hlOrderbook.run(args))),
   );
 
   registerPrompts(server);

@@ -13,6 +13,7 @@ import * as protocols from "../dist/tools/hyperevm_protocols.js";
 import * as fees from "../dist/tools/hyperevm_fees.js";
 import * as poolHistory from "../dist/tools/hyperevm_pool_history.js";
 import * as funding from "../dist/tools/hl_funding.js";
+import * as orderbook from "../dist/tools/hl_orderbook.js";
 
 let passed = 0;
 let failed = 0;
@@ -369,6 +370,40 @@ await check("an unknown funding symbol reads as a typo, not as an outage", async
     assert.ok(!out.includes("could not complete"), "a typo must not read as a source failure");
     assert.ok(out.includes('No perp market named'), "should say the market does not exist");
     assert.ok(!historyRequested, "should not have asked the API about a market it knows is absent");
+  } finally {
+    globalThis.fetch = realFetch;
+    clearCache();
+  }
+});
+
+// The book publishes twenty levels. Answering "can I sell $500k" from twenty
+// levels means extending the book past its last published price, which is the
+// difference between a slippage estimate and a made-up number.
+await check("a trade larger than the visible book is refused, not extrapolated", async () => {
+  clearCache();
+  const realFetch = globalThis.fetch;
+  const meta = [
+    { universe: [{ name: "TEST", maxLeverage: 10 }] },
+    [{ markPx: "100", oraclePx: "100", funding: "0", openInterest: "1", dayNtlVlm: "1", prevDayPx: "100" }],
+  ];
+  // $990 of bids, $1,000 of asks — nothing beyond.
+  const levels = [[{ px: "99", sz: "10", n: 1 }], [{ px: "100", sz: "10", n: 1 }]];
+  globalThis.fetch = async (_url, init) => {
+    const body = JSON.parse(init?.body ?? "{}");
+    return new Response(JSON.stringify(body.type === "l2Book" ? { levels } : meta), { status: 200 });
+  };
+  try {
+    const tooBig = await orderbook.run({ symbol: "TEST", size_usd: 5000 });
+    assert.ok(tooBig.includes("does NOT fill"), "should say the size does not fill");
+    assert.ok(!/Avg fill\s*\|\s*\$/.test(tooBig.split("Walking")[1] ?? ""), "must not quote a fill price it cannot know");
+    assert.ok(tooBig.includes("not public data"), "should name the limit rather than imply one");
+    assert.ok(tooBig.includes("$990") || tooBig.includes("$1.0K"), "should report what depth does exist");
+
+    clearCache();
+    const fits = await orderbook.run({ symbol: "TEST", size_usd: 500 });
+    assert.ok(fits.includes("fills"), "a size inside the book should fill");
+    assert.ok(!fits.includes("does NOT fill"), "both sides hold $500");
+    assert.ok(fits.includes("$99.0000") && fits.includes("$100.0000"), "average fill prices should be the level prices");
   } finally {
     globalThis.fetch = realFetch;
     clearCache();

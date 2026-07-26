@@ -83,6 +83,7 @@ try {
   const expected = [
     "hl_funding",
     "hl_market",
+    "hl_orderbook",
     "hl_staking",
     "hyperevm_fees",
     "hyperevm_pool_history",

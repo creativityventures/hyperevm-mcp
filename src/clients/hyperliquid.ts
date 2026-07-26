@@ -205,6 +205,51 @@ export async function getPredictedFundings(): Promise<Fetched<Map<string, VenueF
   });
 }
 
+export interface BookLevel {
+  px: number;
+  sz: number;
+  /** How many resting orders make up this level. */
+  n: number | null;
+}
+
+export interface OrderBook {
+  bids: BookLevel[];
+  asks: BookLevel[];
+}
+
+/**
+ * The resting order book for one market.
+ *
+ * The API returns twenty levels per side and no more, which is the single most
+ * important fact about this data: for HYPE that is roughly $100–200k of visible
+ * size. A tool that answers "can I sell $500k" from twenty levels is either
+ * extrapolating or lying, so the caller is given the depth and told where it
+ * ends rather than a number that reads as an answer.
+ */
+export async function getOrderBook(coin: string): Promise<Fetched<OrderBook>> {
+  return cached(`hl:l2Book:${coin}`, async () => {
+    const raw = await fetchJson<{ levels?: unknown[] }>(INFO_URL, {
+      source: SOURCE,
+      method: "POST",
+      body: { type: "l2Book", coin },
+    });
+    const side = (input: unknown): BookLevel[] => {
+      if (!Array.isArray(input)) return [];
+      const out: BookLevel[] = [];
+      for (const row of input) {
+        const r = (row ?? {}) as Record<string, unknown>;
+        const px = num(r["px"]);
+        const sz = num(r["sz"]);
+        if (px === null || sz === null || px <= 0 || sz <= 0) continue;
+        out.push({ px, sz, n: num(r["n"]) });
+      }
+      return out;
+    };
+    const levels = Array.isArray(raw?.levels) ? raw.levels : [];
+    return { bids: side(levels[0]), asks: side(levels[1]) };
+  }, 15_000);
+}
+
 export interface FundingPoint {
   time: number;
   /** Rate for that hour, as a fraction. Multiply by 24 * 365 for the annualised figure. */

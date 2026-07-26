@@ -96,6 +96,7 @@ That is the whole setup. Nothing to fill in afterwards — there is no account t
 - *has that 40% APY held up, or is it decaying*
 - *is BTC funding actually stable, or was that one hour*
 - *who earns the most fees on this chain*
+- *could I actually get out of $500k of HYPE*
 - *which protocols grew this week*
 - *tell me about HyperLend*
 - *what's in this wallet: 0x…*
@@ -103,7 +104,7 @@ That is the whole setup. Nothing to fill in afterwards — there is no account t
 
 ## Tools
 
-Eight tools. Four report the present, three report how it got there, one reads an address.
+Nine tools. Five report the present, three report how it got there, one reads an address.
 
 | Tool | What it answers |
 | --- | --- |
@@ -114,6 +115,7 @@ Eight tools. Four report the present, three report how it got there, one reads a
 | `hl_staking` | HYPE validators ranked by predicted APR, with commission, uptime and stake share — what the network pays before any wrapper takes its cut |
 | `hyperevm_pool_history` | One pool's APY and TVL over weeks, split into earned versus emitted — so a headline rate can be checked against its own history |
 | `hl_funding` | How funding actually behaved over days: average, range, how much of the time it held its sign, and what the position would have paid |
+| `hl_orderbook` | Spread and resting depth, and whether a given trade size fills inside the visible book — or a plain statement that it does not |
 | `hyperevm_wallet` | Any public address: account value, open positions with entry, unrealised PnL and liquidation price, spot balances, HYPE staking |
 
 The pairs are deliberate. `hyperevm_yields` and `hl_market` tell you what a number is now; `hyperevm_pool_history` and `hl_funding` tell you whether to believe it. A 47% pool that has been 100% emissions for a month and a 20% pool earning fees are not the same product, and only the second pair can tell them apart.
