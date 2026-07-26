@@ -234,12 +234,27 @@ Node 20 or newer. Two direct dependencies: `@modelcontextprotocol/sdk` and `zod`
 
 ```bash
 npm install
+npm test          # build, unit tests, behaviour checks — runs offline
+npm run verify    # the above plus the self-audit and a real MCP handshake
+```
+
+Individually:
+
+```bash
 npm run build
+node --test "test/*.test.mjs"   # units: numbers, tables, the sanitiser, the cache
+npm run check     # behaviour: injection end-to-end, allowlist, retry, stale fallback, outage
 npm run audit     # enforces every claim in this README against the source
-npm run check     # sanitiser, injection end-to-end, allowlist, retry, stale fallback, outage
+npm run preflight # fails if this repository contains anything that should not be public
 npm run smoke     # every tool against the live public APIs
 npm run stdio     # spawn the server and speak MCP to it
 ```
+
+The unit tests cover the parts that decide what a reader sees: that "unknown"
+renders as `n/a` and never as `0`, that percentage points and percentages stay
+different units, that a cell cannot forge a table column, that a failed refresh
+serves the previous answer and says so. The behaviour checks drive poisoned
+upstream responses through whole tools.
 
 ## Disclaimer
 

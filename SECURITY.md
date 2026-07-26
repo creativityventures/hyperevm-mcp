@@ -45,7 +45,7 @@ Alongside those three:
 - **Numbers are never echoed as strings.** Anything that should be a number is parsed, checked for finiteness, and reformatted.
 - **The JSON block carries the same values as the table** — already sanitised, same truncation — rather than raw upstream fields. There is no "raw JSON as a second block", which would be a direct channel from arbitrary third-party text into the model's context.
 - **An explicit untrusted-data frame** on every response.
-- **An end-to-end test** feeds a poisoned upstream response — chat-template markers, a `javascript:` URL, an instruction to move funds, a code fence in a slug — through a real tool and asserts that none of it arrives intact.
+- **Tests at both levels.** The filter has unit tests over the whole allowlist rather than a handful of known-bad markers, and an end-to-end test feeds a poisoned upstream response — chat-template markers, a `javascript:` URL, an instruction to move funds, a code fence in a slug — through a real tool and asserts that none of it arrives intact.
 
 **What this does not promise.** The filter does not stop ordinary English. A validator named "ignore previous instructions" still reads as those words. The answer to that is the field whitelist, truncation to 24 characters, and the fact that this server offers no action such a phrase could trigger — not a cleverer filter. Anyone claiming a filter solves prompt injection is selling something.
 

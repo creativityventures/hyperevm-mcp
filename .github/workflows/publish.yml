@@ -29,6 +29,9 @@ jobs:
 
       - run: npm run build
 
+      - name: Unit tests
+        run: node --test "test/*.test.mjs"
+
       - name: Self-audit — enforces every claim the README makes
         run: node scripts/audit.mjs
 

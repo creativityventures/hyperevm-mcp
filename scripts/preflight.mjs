@@ -30,6 +30,7 @@ const ALLOWED = [
   /^server\.json$/,
   /^src\/.+\.ts$/,
   /^scripts\/.+\.mjs$/,
+  /^test\/.+\.test\.mjs$/,
   /^\.github\/.+$/,
 ];
 
