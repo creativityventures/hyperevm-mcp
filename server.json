@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.sand0vvv/hyperevm-mcp",
+  "title": "Hyperliquid / HyperEVM",
+  "description": "Read-only Hyperliquid and HyperEVM data: yields, protocols, fees, markets, funding, depth.",
+  "version": "1.4.0",
+  "websiteUrl": "https://github.com/sand0vvv/hyperevm-mcp",
+  "repository": {
+    "url": "https://github.com/sand0vvv/hyperevm-mcp",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@sand0vvv/hyperevm-mcp",
+      "version": "1.4.0",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

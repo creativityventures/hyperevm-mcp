@@ -152,13 +152,42 @@ rule(
     .map((f) => `${f} is neither tracked, ignored, nor excluded`),
 );
 
+const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
+
 rule(
   "the npm tarball ships build output only",
   (() => {
-    const pkg = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
     const files = pkg.files ?? [];
     const allowed = ["dist", "README.md", "LICENSE"];
     return files.filter((f) => !allowed.includes(f)).map((f) => `package.json files[] includes ${f}`);
+  })(),
+);
+
+// The registry entry is a second copy of facts that live in package.json. Two
+// copies drift, and a drifted one is rejected at publish time or, worse,
+// accepted while pointing at a version that does not exist.
+rule(
+  "the registry entry agrees with the package",
+  (() => {
+    const serverPath = path.join(root, "server.json");
+    if (!fs.existsSync(serverPath)) return [];
+    const server = JSON.parse(fs.readFileSync(serverPath, "utf8"));
+    const npmPackage = (server.packages ?? []).find((p) => p.registryType === "npm");
+    const problems = [];
+    if (server.version !== pkg.version) {
+      problems.push(`server.json version ${server.version} != package.json ${pkg.version}`);
+    }
+    if (npmPackage && npmPackage.version !== pkg.version) {
+      problems.push(`server.json package version ${npmPackage.version} != package.json ${pkg.version}`);
+    }
+    if (npmPackage && npmPackage.identifier !== pkg.name) {
+      problems.push(`server.json identifier ${npmPackage.identifier} != package.json name ${pkg.name}`);
+    }
+    // The registry proves you own the npm package by finding its own name here.
+    if (pkg.mcpName !== server.name) {
+      problems.push(`package.json mcpName ${pkg.mcpName ?? "(missing)"} != server.json name ${server.name}`);
+    }
+    return problems;
   })(),
 );
 
