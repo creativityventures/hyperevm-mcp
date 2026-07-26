@@ -1,0 +1,46 @@
+name: publish
+
+# Publishing happens here rather than from a laptop so that npm can attach a
+# provenance attestation linking the published tarball to this commit.
+# The package itself has no install-time lifecycle scripts; the build runs
+# explicitly, in the open, right here.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required for npm provenance
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Self-audit — enforces every claim the README makes
+        run: node scripts/audit.mjs
+
+      - name: Preflight — nothing in this repository that should not be public
+        run: node scripts/preflight.mjs
+
+      - name: Behaviour checks
+        run: node scripts/checks.mjs
+
+      - name: MCP handshake over stdio
+        run: node scripts/stdio-check.mjs
+
+      - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

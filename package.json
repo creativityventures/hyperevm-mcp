@@ -1,0 +1,63 @@
+{
+  "name": "@sand0vvv/hyperevm-mcp",
+  "version": "1.1.0",
+  "description": "Read-only MCP server for the Hyperliquid / HyperEVM ecosystem — DeFi yields, protocol TVL, perp & spot markets. No API keys, no wallets, no signing.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "hyperevm-mcp": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "audit": "node scripts/audit.mjs",
+    "preflight": "node scripts/preflight.mjs",
+    "check": "node scripts/checks.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "stdio": "node scripts/stdio-check.mjs"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "hyperliquid",
+    "hyperevm",
+    "defi",
+    "yields",
+    "apy",
+    "lending",
+    "liquid-staking",
+    "read-only",
+    "claude",
+    "cursor"
+  ],
+  "author": "sand0vvv",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sand0vvv/hyperevm-mcp.git"
+  },
+  "homepage": "https://github.com/sand0vvv/hyperevm-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/sand0vvv/hyperevm-mcp/issues"
+  },
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "typescript": "^7.0.2"
+  }
+}
