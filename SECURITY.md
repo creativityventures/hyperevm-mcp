@@ -8,7 +8,7 @@ That threat is covered first, at length, because it is the real one.
 
 The server holds no private keys, signs nothing, has no write endpoints, asks for no environment variables, reads and writes no files, spawns no processes, opens no ports, and collects no telemetry.
 
-None of that is a promise about our intentions. There is no code path that could do any of it, `npm run audit` fails the build if one appears, and the whole server is ~4,100 lines you can read in an afternoon.
+None of that is a promise about our intentions. There is no code path that could do any of it, `npm run audit` fails the build if one appears, and the whole server is a few thousand lines of TypeScript you can read in an afternoon.
 
 ## T1. Indirect prompt injection — the main risk
 
@@ -61,7 +61,7 @@ The most likely real compromise vector for any npm package, and the first thing 
 
 - **Direct** runtime dependencies: `@modelcontextprotocol/sdk` and `zod`. Fetch is native. No HTTP client, no utility packages.
 - Said plainly rather than left to be discovered: the official SDK brings **94 transitive packages** (express, hono, jose, ajv — its own HTTP and OAuth transports, which a stdio server never uses). That tree is identical for every MCP server built on the official SDK. Our contribution to it is zero packages. The alternative — hand-rolling JSON-RPC over stdio for a zero-dependency tree — was rejected, because a reviewer is more likely to trust the official SDK than a homemade transport.
-- No `postinstall` / `prepare` / `preinstall` scripts. Lockfile committed. `engines.node >= 20`. `files: ["dist", "README.md", "LICENSE"]` — the tarball is 44.3 kB across 24 files.
+- No `postinstall` / `prepare` / `preinstall` scripts. Lockfile committed. `engines.node >= 20`. `files: ["dist", "README.md", "LICENSE"]` — the published tarball contains build output, the README and the licence, and nothing else.
 - Published with `npm publish --provenance` from GitHub Actions over OIDC, with 2FA on the account. Provenance is visible on the package page and ties the artifact to a commit.
 - The git tag equals the npm version. No re-publishing over a released version.
 
@@ -137,7 +137,7 @@ The point is narrow. A promise resting only on the author's good faith is worth 
 - No `description` field is read by any client — the word does not occur in `src/clients/`
 - The host list in `http.ts` has exactly four entries
 - `package.json` has no lifecycle scripts; two direct dependencies
-- `npm pack` contains only `dist/`, README and LICENSE — 44.3 kB, 24 files
+- `npm pack` contains only `dist/`, README and LICENSE — checked by `npm run audit`, not by hand
 - No `console.log` reaches stdout; `scripts/stdio-check.mjs` fails if anything non-JSON does
 - Behaviour with the network down: a sentence, not a stack trace, and never `0.00%` in place of unknown
 - Sanitiser: 8 checks including bidi characters, pipes, and an attempt to escape a code fence

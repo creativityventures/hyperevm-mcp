@@ -188,7 +188,7 @@ supply chain
 every claim in the README is enforced here
 ```
 
-The whole server is ~2,100 lines of TypeScript across 17 files. It is meant to be read before you install it.
+The whole server is a few thousand lines of TypeScript. It is meant to be read before you install it.
 
 ## Three details worth knowing
 
