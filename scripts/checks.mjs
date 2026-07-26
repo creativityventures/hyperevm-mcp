@@ -12,6 +12,7 @@ import * as wallet from "../dist/tools/hyperevm_wallet.js";
 import * as protocols from "../dist/tools/hyperevm_protocols.js";
 import * as fees from "../dist/tools/hyperevm_fees.js";
 import * as poolHistory from "../dist/tools/hyperevm_pool_history.js";
+import * as funding from "../dist/tools/hl_funding.js";
 
 let passed = 0;
 let failed = 0;
@@ -335,6 +336,39 @@ await check("an audit category code is never rendered as a number of audits", as
     const listed = await protocols.run({ name: "Listed" });
     assert.ok(!/Audits:\s*2\b/.test(listed), "printed the raw code as a count");
     assert.ok(listed.includes("links below"), "should point at the links it actually has");
+  } finally {
+    globalThis.fetch = realFetch;
+    clearCache();
+  }
+});
+
+// Asking for funding on a coin that does not exist returns HTTP 500, which the
+// retry repeats and which reaches the reader as "the source is broken". The
+// symbol is checked against the market list first so a typo reads as a typo.
+await check("an unknown funding symbol reads as a typo, not as an outage", async () => {
+  clearCache();
+  const realFetch = globalThis.fetch;
+  const meta = [
+    { universe: [{ name: "BTC", maxLeverage: 40 }, { name: "HYPE", maxLeverage: 10 }] },
+    [
+      { markPx: "64000", oraclePx: "64000", funding: "0.00001", openInterest: "1", dayNtlVlm: "1", prevDayPx: "63000" },
+      { markPx: "58", oraclePx: "58", funding: "0.00001", openInterest: "1", dayNtlVlm: "1", prevDayPx: "57" },
+    ],
+  ];
+  let historyRequested = false;
+  globalThis.fetch = async (_url, init) => {
+    const body = JSON.parse(init?.body ?? "{}");
+    if (body.type === "fundingHistory") {
+      historyRequested = true;
+      return new Response("Internal Server Error", { status: 500 });
+    }
+    return new Response(JSON.stringify(meta), { status: 200 });
+  };
+  try {
+    const out = await funding.run({ symbol: "NOTACOIN" });
+    assert.ok(!out.includes("could not complete"), "a typo must not read as a source failure");
+    assert.ok(out.includes('No perp market named'), "should say the market does not exist");
+    assert.ok(!historyRequested, "should not have asked the API about a market it knows is absent");
   } finally {
     globalThis.fetch = realFetch;
     clearCache();

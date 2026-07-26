@@ -57,6 +57,29 @@ export async function run(args: Args): Promise<string> {
   const days = args.days ?? 7;
   const wanted = args.symbol.trim().toUpperCase();
 
+  // The symbol is checked against the market list first, because asking for
+  // funding on a coin that does not exist returns HTTP 500 rather than an
+  // empty series — which the retry then dutifully repeats, and which surfaces
+  // to the reader as "the source is broken" instead of "no such market".
+  let listed: string[] = [];
+  try {
+    const perps = await getPerps();
+    listed = perps.value.rows.map((p) => p.name);
+  } catch {
+    // If the list is unreachable, fall through and let the history call decide.
+  }
+  if (listed.length > 0 && !listed.includes(wanted)) {
+    const near = listed.filter((s) => s.startsWith(wanted.slice(0, 2))).slice(0, 6);
+    return envelope({
+      sources: [{ label: "Hyperliquid perps", host: "api.hyperliquid.xyz", fetchedAt: Date.now() }],
+      body: cat(lit('No perp market named "'), sanitize(wanted, 24), lit('" on Hyperliquid.')),
+      notes:
+        near.length > 0
+          ? [cat(lit("Closest symbols: "), joinSafe(near.map((s) => sanitize(s, 12)), ", "), lit("."))]
+          : [lit("Pass a perp symbol such as BTC, ETH or HYPE.")],
+    });
+  }
+
   let history: FundingPoint[];
   let fetchedAt: number;
   let stale: boolean;
@@ -74,13 +97,10 @@ export async function run(args: Args): Promise<string> {
   ];
 
   if (history.length === 0) {
-    // An unknown coin and a brand-new listing both land here, and they are
-    // different problems, so name the possibilities instead of guessing.
-    const known = await knownSymbols(wanted);
     return envelope({
       sources,
-      body: cat(lit('No funding history for "'), sanitize(wanted, 24), lit('".')),
-      notes: known,
+      body: cat(lit("No funding recorded for "), sanitize(wanted, 24), lit(` in the last ${days} day(s).`)),
+      notes: [lit("A market listed very recently has no history yet.")],
     });
   }
 
@@ -197,20 +217,6 @@ async function venueTable(symbol: string): Promise<Safe | null> {
   } catch {
     // A missing comparison is not a reason to lose the history above it.
     return null;
-  }
-}
-
-async function knownSymbols(wanted: string): Promise<Safe[]> {
-  try {
-    const { value } = await getPerps();
-    const all = value.rows.map((p) => p.name);
-    const near = all.filter((s) => s.startsWith(wanted.slice(0, 2))).slice(0, 6);
-    if (near.length === 0) return [lit("Pass a perp symbol such as BTC, ETH or HYPE.")];
-    return [
-      cat(lit("Closest symbols: "), joinSafe(near.map((s) => sanitize(s, 12)), ", "), lit(".")),
-    ];
-  } catch {
-    return [lit("Pass a perp symbol such as BTC, ETH or HYPE.")];
   }
 }
 
