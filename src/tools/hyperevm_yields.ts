@@ -8,10 +8,17 @@ import {
   type Pool,
   type Protocol,
 } from "../clients/defillama.js";
-import { getValidators, SOURCE as HL, stakingAprRange } from "../clients/hyperliquid.js";
+import {
+  getValidators,
+  getVault,
+  HLP_VAULT,
+  SOURCE as HL,
+  stakingAprRange,
+  type Vault,
+} from "../clients/hyperliquid.js";
 import { describe, SourceError } from "../core/errors.js";
 import { envelope, failure, type Source } from "../format/envelope.js";
-import { fraction, pct, signedPp, usd } from "../format/numbers.js";
+import { fraction, pct, signedPct, signedPp, usd } from "../format/numbers.js";
 import { cat, joinSafe, lit, type Safe } from "../format/safe.js";
 import { sanitize, sanitizeOr } from "../format/sanitize.js";
 import { section, table } from "../format/table.js";
@@ -76,6 +83,88 @@ interface Row {
   /** Max loan-to-value for this collateral. "Is it safe to borrow" is mostly this number. */
   ltv?: number | null;
   ilRisk: Safe;
+}
+
+/**
+ * The HLP vault, rendered from returns computed here rather than from the
+ * source's own APR field.
+ *
+ * The response carries `apr`. It is not printed: read as an annual fraction it
+ * says 0.07%, read as a daily one it says 25.8% a year, and the vault's own
+ * history — which puts the last month between -0.3% and +1.7% annualised —
+ * supports the first without confirming it. Printing either would be guessing
+ * at a unit, which is how the audit code and the weekly delta both went wrong.
+ *
+ * What is printed instead is realised PnL per window, divided here, labelled
+ * with the window it covers and not annualised. Nobody has to trust a
+ * convention for that number to mean what it says.
+ */
+async function vaultSection(): Promise<
+  { body: Safe; data: unknown; notes: Safe[]; fetchedAt: number; stale: boolean } | null
+> {
+  let vault: Vault;
+  let fetchedAt: number;
+  let stale: boolean;
+  try {
+    const res = await getVault(HLP_VAULT);
+    vault = res.value;
+    fetchedAt = res.fetchedAt;
+    stale = res.stale;
+  } catch {
+    // The vault is an addition to this table, not its subject. If it cannot be
+    // read, the rest of the answer still stands.
+    return null;
+  }
+
+  if (vault.accountValue === null && vault.windows.length === 0) return null;
+
+  const byPeriod = new Map(vault.windows.map((w) => [w.period, w]));
+  const cell = (period: string): Safe => {
+    const w = byPeriod.get(period);
+    if (!w || w.returnFraction === null) return lit("n/a");
+    return signedPct(w.returnFraction * 100, 3);
+  };
+
+  const rows = [
+    [
+      sanitizeOr(vault.name, "Hyperliquidity Provider (HLP)", 30),
+      usd(vault.accountValue),
+      cell("day"),
+      cell("week"),
+      cell("month"),
+    ],
+  ];
+
+  return {
+    fetchedAt,
+    stale,
+    body: section(
+      "Protocol vaults",
+      table(["Vault", "TVL", "24h", "7d", "30d"], rows, ["left", "right", "right", "right", "right"]),
+    ),
+    notes: [
+      lit(
+        "Vault columns are realised profit and loss over that window, as a share of the capital the window started with — not an annualised rate. They are computed here from the vault's own account history.",
+      ),
+      // Deliberately without the candidate values. Quoting them to explain the
+      // omission would put a number in front of a reader who is looking for
+      // exactly that number, which defeats leaving it out.
+      lit(
+        "The source also publishes an APR figure for this vault. It is not shown: the field means very different things depending on whether it is an annual or a daily rate, and the vault's own history does not settle which. An unconfirmed unit is not printed.",
+      ),
+      lit("HLP has no yield pool on DefiLlama, so it is absent from the tables above and read separately from Hyperliquid."),
+    ],
+    data: [
+      {
+        vault: sanitizeOr(vault.name, "HLP", 30),
+        tvl_usd: vault.accountValue,
+        realised_return_pct: Object.fromEntries(
+          vault.windows.map((w) => [w.period, w.returnFraction === null ? null : w.returnFraction * 100]),
+        ),
+        apr_field_not_shown_reason: "source unit unconfirmed",
+      },
+    ],
+  };
 }
 
 /**
@@ -298,6 +387,20 @@ export async function run(args: Args): Promise<string> {
       notes.push(
         lit(`${otherRows.length - shown.length} more rows in Other HYPE yield hidden by limit=${limit}.`),
       );
+    }
+  }
+
+  // HLP is the fifth-largest thing on this chain and the canonical "deposit and
+  // earn" product of Hyperliquid itself — and DefiLlama publishes no yield pool
+  // for it, so a table built only from /pools omits it entirely. A tool that
+  // claims to list every way to earn here cannot skip it.
+  if (category === "lst" || category === "other" || category === "all") {
+    const vault = await vaultSection();
+    if (vault) {
+      sections.push(vault.body);
+      data["vaults"] = vault.data;
+      notes.push(...vault.notes);
+      sources.push({ label: "Hyperliquid vault", host: "api.hyperliquid.xyz", fetchedAt: vault.fetchedAt, stale: vault.stale });
     }
   }
 

@@ -205,6 +205,102 @@ export async function getPredictedFundings(): Promise<Fetched<Map<string, VenueF
   });
 }
 
+/**
+ * The Hyperliquidity Provider vault.
+ *
+ * A fixed, well-known address, hardcoded for the same reason the four hosts
+ * are: nothing about which vault is read may come from a tool argument.
+ */
+export const HLP_VAULT = "0xdfc24b077bc1425ad1dea75bcb6f8158e10df303";
+
+export interface VaultWindow {
+  /** "day", "week", "month" — the source's own bucket names. */
+  period: string;
+  days: number;
+  /** Realised PnL over the window as a fraction of the capital it started with. */
+  returnFraction: number | null;
+}
+
+export interface Vault {
+  name: string;
+  accountValue: number | null;
+  windows: VaultWindow[];
+}
+
+/**
+ * One vault, with returns computed here rather than read from the response.
+ *
+ * The response carries an `apr` field. It is not read: at the time of writing
+ * it reports 0.0007, which is 0.07% read as an annual fraction and 25.8% read
+ * as a daily one, and the vault's own history cannot distinguish the two well
+ * enough to print either. A number whose unit is unconfirmed does not go in
+ * the output — the same rule that caught DefiLlama's audit code.
+ *
+ * What is used instead is the account-value and PnL history, from which the
+ * realised return over each window is computed. That figure is ours: we define
+ * the window, we do the division, and we can defend it.
+ *
+ * `description` is free text set by the vault leader and is never read.
+ */
+export async function getVault(address: string): Promise<Fetched<Vault>> {
+  return cached(`hl:vault:${address}`, async () => {
+    const raw = await fetchJson<Record<string, unknown>>(INFO_URL, {
+      source: SOURCE,
+      method: "POST",
+      body: { type: "vaultDetails", vaultAddress: address },
+    });
+
+    const windows: VaultWindow[] = [];
+    let accountValue: number | null = null;
+
+    const portfolio = Array.isArray(raw["portfolio"]) ? raw["portfolio"] : [];
+    for (const entry of portfolio) {
+      if (!Array.isArray(entry) || entry.length < 2) continue;
+      const period = entry[0];
+      const data = (entry[1] ?? {}) as Record<string, unknown>;
+      if (typeof period !== "string") continue;
+      // Only the whole-account buckets; the "perp*" ones cover a subset.
+      if (period !== "day" && period !== "week" && period !== "month") continue;
+
+      const values = pairs(data["accountValueHistory"]);
+      const pnl = pairs(data["pnlHistory"]);
+      if (values.length < 2) continue;
+
+      const first = values[0]!;
+      const last = values[values.length - 1]!;
+      if (accountValue === null) accountValue = last[1];
+
+      const days = (last[0] - first[0]) / 86_400_000;
+      const moved = pnl.length >= 2 ? pnl[pnl.length - 1]![1] - pnl[0]![1] : null;
+      windows.push({
+        period,
+        days,
+        returnFraction: moved !== null && first[1] > 0 ? moved / first[1] : null,
+      });
+    }
+
+    return {
+      name: typeof raw["name"] === "string" ? raw["name"] : "",
+      accountValue,
+      windows,
+    };
+  });
+}
+
+/** [timestampMs, value] pairs, both of which arrive as strings. */
+function pairs(input: unknown): Array<[number, number]> {
+  if (!Array.isArray(input)) return [];
+  const out: Array<[number, number]> = [];
+  for (const row of input) {
+    if (!Array.isArray(row) || row.length < 2) continue;
+    const t = num(row[0]);
+    const v = num(row[1]);
+    if (t === null || v === null) continue;
+    out.push([t, v]);
+  }
+  return out;
+}
+
 export interface BookLevel {
   px: number;
   sz: number;

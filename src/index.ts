@@ -23,7 +23,7 @@ import { registerPrompts } from "./prompts.js";
  * stdout belongs to the MCP protocol. Anything diagnostic goes to stderr.
  */
 
-const VERSION = "1.3.0";
+const VERSION = "1.4.0";
 
 /** Every tool is read-only and touches only public endpoints. */
 const READ_ONLY = {

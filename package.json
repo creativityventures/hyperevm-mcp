@@ -1,6 +1,6 @@
 {
   "name": "@sand0vvv/hyperevm-mcp",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "Read-only MCP server for the Hyperliquid / HyperEVM ecosystem — DeFi yields, protocol TVL, perp & spot markets. No API keys, no wallets, no signing.",
   "type": "module",
   "main": "dist/index.js",

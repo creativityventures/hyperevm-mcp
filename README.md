@@ -26,18 +26,31 @@ Anything far above this is a reward or a risk premium.
 | HyperLend Pooled | WHYPE |  0.61% |  0.98% | 78.0% |   60.0% | $42.1M |
 
 ## Other HYPE yield (LP, looping, fixed-term)
-| Protocol   | Pool                 |    APY |   Base |      7d |   TVL | IL  |
-| ---------- | -------------------- | -----: | -----: | ------: | ----: | --- |
-| nest CL    | WHYPE-USDC (0.0637%) | 39.87% |    n/a | +1.82pp | $5.9M | yes |
-| nest CL    | WHYPE-UBTC (0.2%)    | 33.53% |    n/a | -8.66pp | $1.7M | yes |
-| D2 Finance | D2HYPE               | 20.61% | 20.61% |  0.00pp | $8.7M | no  |
+| Protocol     | Pool                  |    APY |  Base |       7d |   TVL | IL  |
+| ------------ | --------------------- | -----: | ----: | -------: | ----: | --- |
+| nest CL      | WHYPE-USDC (0.0638%)  | 38.80% |   n/a |  +0.33pp | $5.9M | yes |
+| nest CL      | WHYPE-UBTC (0.2%)     | 32.78% |   n/a |  -9.93pp | $1.7M | yes |
+| Ramses CL V2 | WHYPE-USDC (CL 0.11%) | 30.14% | 0.00% | -29.96pp | $1.8M | yes |
 
-Note: 2 of the rows above are mostly token emissions rather than earned yield.
+## Protocol vaults
+| Vault                         |     TVL |     24h |      7d |     30d |
+| ----------------------------- | ------: | ------: | ------: | ------: |
+| Hyperliquidity Provider (HLP) | $225.7M | -0.003% | +0.010% | -0.024% |
+
+Note: 3 of the rows above are mostly token emissions rather than earned yield.
 Compare the APY and Base columns — emissions stop when the issuing team
 decides they stop.
 ```
 
-Three of those cells read `n/a`. That is the point: stHYPE publishes no yield pool, and kHYPE's weekly delta came back from the source implying the pool paid nothing seven days ago, which its own daily history contradicts. A number we cannot stand behind is not printed.
+Four of those cells read `n/a`. That is the point: stHYPE publishes no yield pool, and kHYPE's weekly delta came back from the source implying the pool paid nothing seven days ago, which its own daily history contradicts. A number we cannot stand behind is not printed.
+
+The vault row shows the same rule twice over. HLP has no pool on DefiLlama at all,
+so a table built from that source alone silently omits the largest single place
+to deposit on the chain — it is read from Hyperliquid instead. And Hyperliquid's
+own APR field for it is *not* shown, because the same value means one thing as
+an annual rate and something 365 times larger as a daily one, and the vault's
+history does not settle which. What is shown is realised profit and loss per
+window, divided here, where the arithmetic is ours to defend.
 
 Then ask whether to believe one of those rates:
 
@@ -108,7 +121,7 @@ Nine tools. Five report the present, three report how it got there, one reads an
 
 | Tool | What it answers |
 | --- | --- |
-| `hyperevm_yields` | Every yield on HYPE in one table: liquid staking, lending with supply/borrow/utilisation/max LTV, LP and looping — with earned yield separated from token emissions |
+| `hyperevm_yields` | Every yield on HYPE in one table: liquid staking, lending with supply/borrow/utilisation/max LTV, LP and looping, and the HLP vault — with earned yield separated from token emissions |
 | `hyperevm_protocols` | What is deployed on HyperEVM: chain TVL, per-protocol TVL, 1d/7d change, sortable by size or weekly growth; a detail card for any one protocol |
 | `hyperevm_fees` | Fees users actually paid, ranked over 24h/7d/30d. TVL says how much money sits somewhere; this says whether anyone is paying to use it |
 | `hl_market` | Perp mark price, funding hourly and annualised, open interest, 24h volume; spot pairs; predicted funding across Hyperliquid, Binance and Bybit |
@@ -141,7 +154,6 @@ It has no write path. Not "disabled by default" — the code to sign or send any
 - Talks to exactly four hosts, hardcoded in [`src/core/http.ts`](src/core/http.ts):
   `api.hyperliquid.xyz`, `api.llama.fi`, `yields.llama.fi`, `rpc.hyperliquid.xyz`.
   No tool takes a URL, host or chain as a parameter.
-- Reads no environment variables. There is nothing to configure, so there is nothing to leak.
 
 **None of that is a promise — it is a test.** `npm run audit` checks every line above against the
 source and exits non-zero if one stops being true; it runs in CI before publish. Adding a `fs` import
