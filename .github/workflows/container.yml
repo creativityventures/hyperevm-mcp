@@ -1,0 +1,58 @@
+name: container
+
+# Directory listings build the server and start it in a container to check that
+# it answers an introspection request. That makes the Dockerfile part of the
+# product rather than a file sitting in the repository, so it gets the same
+# treatment as everything else here: it is tested, and a broken one stops the
+# build instead of being discovered by whoever tries to list us.
+#
+# The check is not a container-specific script. It is the same stdio handshake
+# the package itself is held to, pointed at the image.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "Dockerfile"
+      - "src/**"
+      - "package*.json"
+      - "tsconfig.json"
+      - "scripts/stdio-check.mjs"
+      - ".github/workflows/container.yml"
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 20
+
+      - name: Build the image
+        run: docker build -t hyperevm-mcp:ci .
+
+      - name: The image speaks MCP
+        run: node scripts/stdio-check.mjs -- docker run --rm -i hyperevm-mcp:ci
+
+      - name: The image carries no shell history, no secrets, no source
+        run: |
+          # dist and the runtime dependencies, nothing else. A container that
+          # shipped the TypeScript sources or a stray .env would still pass the
+          # handshake above, which is why this is checked separately.
+          docker run --rm --entrypoint sh hyperevm-mcp:ci -c '
+            test ! -d /app/src || { echo "source shipped in the runtime image"; exit 1; }
+            test ! -e /app/.env || { echo ".env shipped in the runtime image"; exit 1; }
+            test ! -d /app/test || { echo "tests shipped in the runtime image"; exit 1; }
+            test -f /app/dist/index.js || { echo "no entry point"; exit 1; }
+            echo "runtime image contains only what it needs"
+          '
+
+      - name: It does not run as root
+        run: |
+          USER_ID=$(docker run --rm --entrypoint id hyperevm-mcp:ci -u)
+          echo "uid inside the container: $USER_ID"
+          test "$USER_ID" != "0" || { echo "container runs as root"; exit 1; }

@@ -1,6 +1,17 @@
 // Talks to the built server the way a real MCP client does: spawn it, speak
 // newline-delimited JSON-RPC over stdio, and confirm the handshake, the tool
 // list and one real tool call.
+//
+//   node scripts/stdio-check.mjs
+//       against dist/index.js, the usual case
+//
+//   node scripts/stdio-check.mjs -- docker run --rm -i hyperevm-mcp
+//       against anything that speaks MCP on stdin and stdout
+//
+// The second form exists because directory listings run the server in a
+// container, and a Dockerfile nobody has started is a guess. Pointing the same
+// check at the image means the container is held to what the package promises,
+// rather than to a second, weaker test written specially for it.
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -8,7 +19,13 @@ import path from "node:path";
 const here = path.dirname(fileURLToPath(import.meta.url));
 const entry = path.join(here, "..", "dist", "index.js");
 
-const child = spawn(process.execPath, [entry], { stdio: ["pipe", "pipe", "pipe"] });
+const separator = process.argv.indexOf("--");
+const override = separator === -1 ? [] : process.argv.slice(separator + 1);
+const [command, ...args] = override.length > 0 ? override : [process.execPath, entry];
+
+if (override.length > 0) console.log(`target: ${override.join(" ")}\n`);
+
+const child = spawn(command, args, { stdio: ["pipe", "pipe", "pipe"] });
 
 const pending = new Map();
 let buffer = "";
