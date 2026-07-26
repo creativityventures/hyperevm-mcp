@@ -28,6 +28,7 @@ const ALLOWED = [
   /^package(-lock)?\.json$/,
   /^tsconfig\.json$/,
   /^server\.json$/,
+  /^Dockerfile$/,
   /^src\/.+\.ts$/,
   /^scripts\/.+\.mjs$/,
   /^test\/.+\.test\.mjs$/,
