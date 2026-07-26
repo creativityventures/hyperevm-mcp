@@ -13,8 +13,17 @@ const ALLOWED_HOSTS = new Set([
 ]);
 
 const TIMEOUT_MS = 7_000;
-/** The retry is deliberately shorter, so a bad network costs ~12s, not ~16s. */
-const RETRY_TIMEOUT_MS = 5_000;
+/**
+ * The retry gets the same budget as the first attempt, not less.
+ *
+ * It used to get 5s, on the reasoning that a bad network should cost ~12s
+ * rather than ~16s. That reasoning ignored the payload: /pools is 11 MB, so
+ * when the first attempt times out reading the body, a shorter second attempt
+ * is guaranteed to time out too — the retry was decorative on the one endpoint
+ * that needed it most. Observed live, not deduced: the flagship tool failed a
+ * handshake check this way.
+ */
+const RETRY_TIMEOUT_MS = TIMEOUT_MS;
 const RETRY_DELAY_MS = 300;
 /** yields.llama.fi/pools is ~11 MB, so the usual 5 MB cap would break the flagship tool. */
 const MAX_BYTES = 25 * 1024 * 1024;

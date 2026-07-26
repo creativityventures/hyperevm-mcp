@@ -25,9 +25,11 @@ import { facts, section, subsection, table } from "../format/table.js";
 export const name = "hl_market";
 
 export const description =
-  "Hyperliquid market data: perp mark price, funding (hourly and annualised), open interest and 24h " +
-  "volume, plus spot pair prices. Pass a symbol for one market, including predicted funding across " +
-  "Hyperliquid, Binance and Bybit. Read-only, public data, no API key.";
+  "Prices and market state on Hyperliquid right now: perp mark and oracle price, 24h move, funding " +
+  "(hourly and annualised), open interest, volume and max leverage, plus spot pair prices. Pass a " +
+  "symbol for one market with predicted funding on Hyperliquid, Binance and Bybit side by side. " +
+  "This is the current snapshot; for how funding behaved over past days use hl_funding. " +
+  "Read-only, public data, no API key.";
 
 export const inputSchema = {
   symbol: z.string().max(24).optional().describe("Market symbol, e.g. BTC or PURR. Omitted = top by volume."),

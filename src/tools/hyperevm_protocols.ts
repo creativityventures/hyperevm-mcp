@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getProtocols, SOURCE as LLAMA, type Protocol } from "../clients/defillama.js";
+import { getChainTotals, getProtocols, SOURCE as LLAMA, type Protocol } from "../clients/defillama.js";
 import { describe, SourceError } from "../core/errors.js";
 import { envelope, failure, type Source } from "../format/envelope.js";
 import { signedPct, usd, utcDate } from "../format/numbers.js";
@@ -18,15 +18,21 @@ import { facts, section, table } from "../format/table.js";
 export const name = "hyperevm_protocols";
 
 export const description =
-  "Protocols deployed on Hyperliquid / HyperEVM: TVL on this chain, category, 1d and 7d change, " +
-  "audits and links. Pass a name for a detail card on one protocol. Read-only, public data, no API key.";
+  "What is deployed on Hyperliquid / HyperEVM and how big it is: every protocol's TVL on this chain, " +
+  "its category, and how that TVL moved over 1 and 7 days, plus the chain total. Sort by size or by " +
+  "weekly growth. Pass a name for a detail card with audit links, site and socials. " +
+  "Read-only, public data, no API key.";
 
 export const inputSchema = {
   name: z.string().max(64).optional().describe("Protocol name or slug, e.g. HyperLend. Omitted = ranked list."),
+  sort: z
+    .enum(["tvl", "growth_7d"])
+    .optional()
+    .describe('Order of the list: "tvl" for the largest (default), "growth_7d" for the fastest growing.'),
   limit: z.number().int().min(1).max(50).optional().describe("Rows in the list. Default 15."),
 };
 
-type Args = { name?: string; limit?: number };
+type Args = { name?: string; sort?: "tvl" | "growth_7d"; limit?: number };
 
 export async function run(args: Args): Promise<string> {
   let protocols: Protocol[];
@@ -48,12 +54,27 @@ export async function run(args: Args): Promise<string> {
   }
 
   const limit = args.limit ?? 15;
-  const ranked = [...protocols].sort((a, b) => (b.hlTvl ?? 0) - (a.hlTvl ?? 0));
+  const sort = args.sort ?? "tvl";
+
+  // Sorting by growth over the whole list would put a $40k protocol that
+  // doubled above everything real, so the growth view keeps a size floor and
+  // says so rather than quietly filtering.
+  const GROWTH_FLOOR = 1_000_000;
+  const pool =
+    sort === "growth_7d" ? protocols.filter((p) => (p.hlTvl ?? 0) >= GROWTH_FLOOR) : protocols;
+  const ranked = [...pool].sort((a, b) =>
+    sort === "growth_7d"
+      ? (b.change7d ?? -Infinity) - (a.change7d ?? -Infinity)
+      : (b.hlTvl ?? 0) - (a.hlTvl ?? 0),
+  );
   const shown = ranked.slice(0, limit);
+
+  const chain = await chainLine();
 
   const body = section(
     "Protocols on Hyperliquid / HyperEVM",
     cat(
+      chain,
       lit(`${protocols.length} protocols report TVL on this chain.\n\n`),
       table(
         ["Protocol", "Category", "TVL", "1d", "7d"],
@@ -69,13 +90,20 @@ export async function run(args: Args): Promise<string> {
     ),
   );
 
+  const notes: Safe[] = [
+    lit(`Showing ${shown.length} of ${protocols.length}. Pass a name, e.g. name="HyperLend", for a detail card.`),
+    lit("TVL is the value on Hyperliquid L1 only, not the protocol's total across all chains."),
+  ];
+  if (sort === "growth_7d") {
+    notes.unshift(
+      lit("Sorted by 7d change, among protocols holding at least $1.0M. Smaller ones can post huge percentages off a tiny base."),
+    );
+  }
+
   return envelope({
     sources: [source],
     body,
-    notes: [
-      lit(`Showing ${shown.length} of ${protocols.length}. Pass a name, e.g. name="HyperLend", for a detail card.`),
-      lit("TVL is the value on Hyperliquid L1 only, not the protocol's total across all chains."),
-    ],
+    notes,
     data: shown.map((p) => ({
       protocol: sanitizeOr(p.name, "?", 28),
       slug: sanitize(p.slug, 32),
@@ -135,8 +163,8 @@ function detail(query: string, protocols: Protocol[], source: Source): string {
   }
   pairs.push(["Change", cat(lit("1d "), signedPct(p.change1d), lit(" · 7d "), signedPct(p.change7d))]);
   if (p.mcap !== null) pairs.push(["Market cap", usd(p.mcap)]);
-  pairs.push(["Audits", p.audits === null ? lit("not reported") : lit(String(p.audits))]);
   const links = p.auditLinks.map(safeUrl).filter((u) => u !== "");
+  pairs.push(["Audits", auditStatus(p.audits, links.length)]);
   if (links.length > 0) pairs.push(["Audit links", joinSafe(links.slice(0, 2), " ")]);
   const site = safeUrl(p.url);
   if (site !== "") pairs.push(["Site", site]);
@@ -167,9 +195,50 @@ function detail(query: string, protocols: Protocol[], source: Source): string {
       tvl_usd_all_chains: p.totalTvl,
       change_1d_pct: p.change1d,
       change_7d_pct: p.change7d,
-      audits: p.audits,
+      audit_links_on_defillama: links.length,
     },
   });
+}
+
+/**
+ * The chain's own TVL, which is not the sum of the list below it.
+ *
+ * DefiLlama counts the bridge separately from the chain total, so adding up
+ * the protocol rows gives a much larger number. Printing the chain figure and
+ * the protocol list without saying that would look like an arithmetic error to
+ * anyone who checked — which is exactly the reader this is written for.
+ */
+async function chainLine(): Promise<Safe> {
+  try {
+    const { value } = await getChainTotals();
+    if (value.tvl === null) return lit("");
+    return cat(
+      lit("Chain TVL: "),
+      usd(value.tvl),
+      lit(" as reported for Hyperliquid L1 — this excludes the bridge, so it is smaller than the sum of the rows below.\n\n"),
+    );
+  } catch {
+    // A missing total is not a reason to lose the list.
+    return lit("");
+  }
+}
+
+/**
+ * DefiLlama's `audits` field is a category code, not a number of audits.
+ *
+ * Checked against the live API: Aave V3, Lido, Uniswap V3, Curve and Compound
+ * all carry "2", and 5,027 of ~7,900 protocols carry "0". Printing the raw
+ * value would mean telling a reader that Aave has had two audits, and that
+ * Kinetiq has had none — the second being a damaging claim about a real
+ * company that the source never actually made.
+ *
+ * So the code is reported as what it is: whether DefiLlama has audit links on
+ * file. Anything beyond that belongs to the protocol's own documentation.
+ */
+function auditStatus(code: number | null, linkCount: number): Safe {
+  if (linkCount > 0) return lit("listed on DefiLlama, links below");
+  if (code === null) return lit("n/a");
+  return lit("none listed on DefiLlama — not a statement that none exist");
 }
 
 type Match =

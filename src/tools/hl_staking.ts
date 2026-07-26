@@ -21,8 +21,10 @@ import { section, table } from "../format/table.js";
 export const name = "hl_staking";
 
 export const description =
-  "HYPE staking on Hyperliquid: active validators ranked by predicted APR, with commission, uptime " +
-  "and stake. Shows what the network pays before any liquid staking wrapper takes its cut. " +
+  "Staking HYPE directly with a validator: the active set ranked by predicted APR, with each one's " +
+  "commission, uptime and share of stake, and jailed validators named but excluded. This is what the " +
+  "network pays before any liquid staking wrapper takes its cut, so it is the benchmark every kHYPE " +
+  "or stHYPE rate should be judged against — those live in hyperevm_yields. " +
   "Read-only, public data, no API key.";
 
 export const inputSchema = {

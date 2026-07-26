@@ -19,9 +19,10 @@ import { facts, section, subsection, table } from "../format/table.js";
 export const name = "hyperevm_wallet";
 
 export const description =
-  "Read any public Hyperliquid address: perp account value and open positions with entry, unrealised " +
-  "PnL and liquidation price, spot balances, and HYPE staking. Reads public ledger data only: the " +
-  "server has no way to sign or send anything on behalf of the address.";
+  "Look up what any public Hyperliquid address holds: account value, margin, open perp positions " +
+  "with entry price, unrealised PnL and liquidation price, spot balances, and delegated HYPE. Works " +
+  "on any address, including one that is not yours — this reads the public ledger, and the server " +
+  "has no key, no signature and no send path with which to act on an address.";
 
 /** Checked before the network is touched. Nothing else is accepted. */
 const ADDRESS = /^0x[a-fA-F0-9]{40}$/;

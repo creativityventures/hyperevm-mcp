@@ -78,7 +78,24 @@ try {
 
   const list = await request(2, "tools/list", {});
   const tools = list.result?.tools ?? [];
-  expect("tools/list returns five tools", tools.length === 5, `got ${tools.length}`);
+  // Named rather than counted: a rename is as much a break for an installed
+  // client as a removal, and a count would not notice one.
+  const expected = [
+    "hl_funding",
+    "hl_market",
+    "hl_staking",
+    "hyperevm_fees",
+    "hyperevm_pool_history",
+    "hyperevm_protocols",
+    "hyperevm_wallet",
+    "hyperevm_yields",
+  ];
+  const got = tools.map((t) => t.name).sort();
+  expect(
+    `tools/list returns the ${expected.length} expected tools`,
+    JSON.stringify(got) === JSON.stringify(expected),
+    `got ${JSON.stringify(got)}`,
+  );
   for (const t of tools) {
     const ro = t.annotations?.readOnlyHint === true;
     expect(`${t.name} declares readOnlyHint`, ro);

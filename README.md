@@ -8,34 +8,62 @@ It reads. There is nowhere to put a private key, and that is the whole security 
 ```
 
 ```
-Network HYPE staking APR: 2.02%–2.25% across 27 active validators.
+Network HYPE staking APR: 1.80%–2.25% across 27 active validators.
 Anything far above this is a reward or a risk premium.
 
 ## Liquid staking (HYPE LSTs)
-| Protocol       | Token |   APY |      7d |     TVL |
-| -------------- | ----- | ----: | ------: | ------: |
-| Kinetiq kHYPE  | KHYPE | 1.94% | -0.01pp | $819.4M |
-| stHYPE         | —     |   n/a |     n/a | $172.0M |
-| Hyperbeat LST  | —     |   n/a |     n/a |   $9.5M |
+| Protocol       | Token |   APY |  7d |     TVL |
+| -------------- | ----- | ----: | --: | ------: |
+| Kinetiq kHYPE  | KHYPE | 1.94% | n/a | $825.9M |
+| stHYPE         | —     |   n/a | n/a | $173.9M |
+| Kinetiq kmHYPE | —     |   n/a | n/a |  $36.1M |
 
 ## Lending markets
-| Protocol         | Asset | Supply | Borrow |  Util |    TVL |
-| ---------------- | ----- | -----: | -----: | ----: | -----: |
-| HyperLend Pooled | USDC  |  5.83% |  7.35% | 88.1% | $12.3M |
-| HyperLend Pooled | WHYPE |  0.61% |  0.97% | 77.9% | $42.1M |
-| HyperLend Pooled | WHYPE |  0.00% |  0.01% |  1.0% | $94.3M |
+| Protocol         | Asset | Supply | Borrow |  Util | Max LTV |    TVL |
+| ---------------- | ----- | -----: | -----: | ----: | ------: | -----: |
+| HyperLend Pooled | USDC  |  5.84% |  7.36% | 88.2% |   62.0% | $12.1M |
+| HyperLend Pooled | USD₮0 |  5.15% |  7.94% | 72.2% |   62.0% |  $1.8M |
+| HyperLend Pooled | WHYPE |  0.61% |  0.98% | 78.0% |   60.0% | $42.1M |
 
 ## Other HYPE yield (LP, looping, fixed-term)
-| Protocol     | Pool                  |    APY |   Base |       7d |   TVL | IL  |
-| ------------ | --------------------- | -----: | -----: | -------: | ----: | --- |
-| Ramses CL V2 | WHYPE-USDC (CL 0.10%) | 48.86% |  0.00% | -30.16pp | $1.7M | yes |
-| nest CL      | WHYPE-USDC (0.065%)   | 40.11% |    n/a | -34.81pp | $5.9M | yes |
-| D2 Finance   | D2HYPE                | 20.61% | 20.61% |   0.00pp | $8.6M | no  |
+| Protocol   | Pool                 |    APY |   Base |      7d |   TVL | IL  |
+| ---------- | -------------------- | -----: | -----: | ------: | ----: | --- |
+| nest CL    | WHYPE-USDC (0.0637%) | 39.87% |    n/a | +1.82pp | $5.9M | yes |
+| nest CL    | WHYPE-UBTC (0.2%)    | 33.53% |    n/a | -8.66pp | $1.7M | yes |
+| D2 Finance | D2HYPE               | 20.61% | 20.61% |  0.00pp | $8.7M | no  |
 
 Note: 2 of the rows above are mostly token emissions rather than earned yield.
 Compare the APY and Base columns — emissions stop when the issuing team
 decides they stop.
 ```
+
+Three of those cells read `n/a`. That is the point: stHYPE publishes no yield pool, and kHYPE's weekly delta came back from the source implying the pool paid nothing seven days ago, which its own daily history contradicts. A number we cannot stand behind is not printed.
+
+Then ask whether to believe one of those rates:
+
+```
+"has that Ramses WHYPE-USDC pool actually been paying 100%?"
+```
+
+```
+## Pool history
+Pool:                   WHYPE-USDC
+Project:                Ramses CL V2
+APY now:                16.86%
+APY 7d ago:             144.75%
+APY 30d ago:            107.77%
+Earned vs emitted now:  0.00% earned · 16.86% emitted
+TVL change over window: -10.7%
+
+| Date (UTC) |     APY | Earned | Emitted |   TVL |
+| ---------- | ------: | -----: | ------: | ----: |
+| 2026-06-27 | 107.77% |  0.00% | 107.77% | $1.9M |
+| 2026-07-09 |  70.09% |  0.00% |  70.09% | $2.0M |
+| 2026-07-21 |  58.80% |  0.00% |  58.80% | $1.8M |
+| 2026-07-26 |  16.86% |  0.00% |  16.86% | $1.7M |
+```
+
+Zero earned, every day, for a month.
 
 ## Install
 
@@ -65,20 +93,30 @@ That is the whole setup. Nothing to fill in afterwards — there is no account t
 - *what's the best HYPE yield right now*
 - *compare lending rates on HyperEVM*
 - *which HYPE pools are just token emissions and which actually earn*
-- *what's the funding on BTC perp, and how does it compare to Binance and Bybit*
+- *has that 40% APY held up, or is it decaying*
+- *is BTC funding actually stable, or was that one hour*
+- *who earns the most fees on this chain*
+- *which protocols grew this week*
 - *tell me about HyperLend*
 - *what's in this wallet: 0x…*
 - *where should I stake HYPE and what does the commission cost me*
 
 ## Tools
 
+Eight tools. Four report the present, three report how it got there, one reads an address.
+
 | Tool | What it answers |
 | --- | --- |
-| `hyperevm_yields` | Every yield on HYPE in one table: liquid staking, lending with supply/borrow/utilisation, LP and looping — with earned yield separated from token emissions |
-| `hyperevm_protocols` | What is deployed on HyperEVM, TVL on this chain, 1d/7d change, audits; a detail card for any one protocol |
+| `hyperevm_yields` | Every yield on HYPE in one table: liquid staking, lending with supply/borrow/utilisation/max LTV, LP and looping — with earned yield separated from token emissions |
+| `hyperevm_protocols` | What is deployed on HyperEVM: chain TVL, per-protocol TVL, 1d/7d change, sortable by size or weekly growth; a detail card for any one protocol |
+| `hyperevm_fees` | Fees users actually paid, ranked over 24h/7d/30d. TVL says how much money sits somewhere; this says whether anyone is paying to use it |
 | `hl_market` | Perp mark price, funding hourly and annualised, open interest, 24h volume; spot pairs; predicted funding across Hyperliquid, Binance and Bybit |
-| `hyperevm_wallet` | Any public address: account value, open positions with entry, unrealised PnL and liquidation price, spot balances, HYPE staking |
 | `hl_staking` | HYPE validators ranked by predicted APR, with commission, uptime and stake share — what the network pays before any wrapper takes its cut |
+| `hyperevm_pool_history` | One pool's APY and TVL over weeks, split into earned versus emitted — so a headline rate can be checked against its own history |
+| `hl_funding` | How funding actually behaved over days: average, range, how much of the time it held its sign, and what the position would have paid |
+| `hyperevm_wallet` | Any public address: account value, open positions with entry, unrealised PnL and liquidation price, spot balances, HYPE staking |
+
+The pairs are deliberate. `hyperevm_yields` and `hl_market` tell you what a number is now; `hyperevm_pool_history` and `hl_funding` tell you whether to believe it. A 47% pool that has been 100% emissions for a month and a 20% pool earning fees are not the same product, and only the second pair can tell them apart.
 
 ## Slash commands
 

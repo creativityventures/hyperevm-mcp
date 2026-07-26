@@ -34,9 +34,12 @@ import { section, table } from "../format/table.js";
 export const name = "hyperevm_yields";
 
 export const description =
-  "Yields across the whole Hyperliquid / HyperEVM ecosystem in one table: liquid staking tokens " +
-  "(kHYPE, stHYPE, beHYPE), lending markets with supply and borrow APY plus utilization, and other " +
-  "HYPE-denominated yield. Read-only, public data, no API key.";
+  "Every way to earn on Hyperliquid / HyperEVM, ranked in one table: liquid staking tokens " +
+  "(kHYPE, stHYPE, beHYPE), lending markets with supply and borrow rates, utilisation and max LTV, " +
+  "and LP or looping pools. Separates yield a pool earns from yield paid in emitted tokens, and " +
+  "anchors everything against what the network itself pays for staking. Start here for " +
+  "\"where is the best yield\"; use hyperevm_pool_history to see whether one of these rates has held. " +
+  "Read-only, public data, no API key.";
 
 export const inputSchema = {
   category: z
@@ -70,7 +73,32 @@ interface Row {
   supplyApy?: number | null;
   borrowApy?: number | null;
   utilization?: number | null;
+  /** Max loan-to-value for this collateral. "Is it safe to borrow" is mostly this number. */
+  ltv?: number | null;
   ilRisk: Safe;
+}
+
+/**
+ * The provider's own 7-day delta, with one failure mode filtered out.
+ *
+ * `apyPct7D` is usually right — checked against the daily series for the same
+ * pools, it agrees to the second decimal. But its reference point is a single
+ * sample from a week ago, and when that sample is bad the field is badly wrong:
+ * for kHYPE it reported +1.93pp against a true move of +0.00pp, because the
+ * stored value for that day was near zero.
+ *
+ * The signature of that failure is specific — the delta accounts for almost the
+ * entire current APY, implying the pool paid nothing a week ago. Where that
+ * holds, the number is dropped rather than printed. A pool that genuinely
+ * started from zero loses a true figure to n/a, which is the direction this
+ * project errs in on purpose. `hyperevm_pool_history` recomputes the move from
+ * the daily series when the answer matters.
+ */
+function trusted7d(apy: number | null, change: number | null): number | null {
+  if (change === null || apy === null) return change;
+  if (apy <= 0.1) return change;
+  const impliedBefore = apy - change;
+  return impliedBefore <= apy * 0.01 ? null : change;
 }
 
 /**
@@ -190,16 +218,17 @@ export async function run(args: Args): Promise<string> {
         section(
           "Lending markets",
           table(
-            ["Protocol", "Asset", "Supply", "Borrow", "Util", "TVL"],
+            ["Protocol", "Asset", "Supply", "Borrow", "Util", "Max LTV", "TVL"],
             shown.map((r) => [
               r.project,
               r.label,
               pct(r.supplyApy ?? null),
               pct(r.borrowApy ?? null),
               fraction(r.utilization ?? null),
+              fraction(r.ltv ?? null),
               usd(r.tvl),
             ]),
-            ["left", "left", "right", "right", "right", "right"],
+            ["left", "left", "right", "right", "right", "right", "right"],
           ),
         ),
       );
@@ -209,6 +238,7 @@ export async function run(args: Args): Promise<string> {
         supply_apy_pct: r.supplyApy ?? null,
         borrow_apy_pct: r.borrowApy ?? null,
         utilization: r.utilization ?? null,
+        max_ltv: r.ltv ?? null,
         tvl_usd: r.tvl,
       }));
     }
@@ -265,12 +295,24 @@ export async function run(args: Args): Promise<string> {
       }
     }
     if (otherRows.length > shown.length) {
-      notes.push(lit(`${otherRows.length - shown.length} more rows hidden by limit=${limit}.`));
+      notes.push(
+        lit(`${otherRows.length - shown.length} more rows in Other HYPE yield hidden by limit=${limit}.`),
+      );
     }
   }
 
   if (sections.length === 0) {
     notes.push(cat(lit("No pools matched. Try lowering min_tvl (currently "), usd(minTvl), lit(') or category="all".')));
+  }
+
+  // Provenance for the one column here that is not a current reading.
+  const showed7d = category === "lst" || category === "other" || category === "all";
+  if (showed7d && sections.length > 0) {
+    notes.push(
+      lit(
+        "The 7d column is the source's own weekly delta, measured against a single sample from a week ago. Where that sample looks unusable the cell reads n/a instead of a number; hyperevm_pool_history recomputes the move from the daily series.",
+      ),
+    );
   }
 
   const header = baseline === "" ? lit("") : cat(baseline, lit("\n\n"));
@@ -312,7 +354,7 @@ function buildLst(
           apy: pool.apy,
           apyBase: pool.apyBase,
           apyReward: pool.apyReward,
-          apy7d: pool.apyPct7D,
+          apy7d: trusted7d(pool.apy, pool.apyPct7D),
           tvl: pool.tvlUsd,
           ilRisk: sanitizeOr(pool.ilRisk, "?", 8),
         });
@@ -358,10 +400,11 @@ function buildLending(
       apy: pool.apy,
       apyBase: pool.apyBase,
       apyReward: pool.apyReward,
-      apy7d: pool.apyPct7D,
+      apy7d: trusted7d(pool.apy, pool.apyPct7D),
       supplyApy: pool.apy,
       borrowApy: b.apyBaseBorrow,
       utilization,
+      ltv: b.ltv,
       tvl: pool.tvlUsd,
     });
   }
@@ -392,7 +435,7 @@ function buildOther(
       apy: pool.apy,
       apyBase: pool.apyBase,
       apyReward: pool.apyReward,
-      apy7d: pool.apyPct7D,
+      apy7d: trusted7d(pool.apy, pool.apyPct7D),
       tvl: pool.tvlUsd,
       ilRisk: sanitizeOr(pool.ilRisk, "?", 8),
     });

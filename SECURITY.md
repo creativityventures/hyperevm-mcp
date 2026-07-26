@@ -8,7 +8,7 @@ That threat is covered first, at length, because it is the real one.
 
 The server holds no private keys, signs nothing, has no write endpoints, asks for no environment variables, reads and writes no files, spawns no processes, opens no ports, and collects no telemetry.
 
-None of that is a promise about our intentions. There is no code path that could do any of it, `npm run audit` fails the build if one appears, and the whole server is ~2,700 lines you can read in an afternoon.
+None of that is a promise about our intentions. There is no code path that could do any of it, `npm run audit` fails the build if one appears, and the whole server is ~3,700 lines you can read in an afternoon.
 
 ## T1. Indirect prompt injection — the main risk
 
@@ -61,7 +61,7 @@ The most likely real compromise vector for any npm package, and the first thing 
 
 - **Direct** runtime dependencies: `@modelcontextprotocol/sdk` and `zod`. Fetch is native. No HTTP client, no utility packages.
 - Said plainly rather than left to be discovered: the official SDK brings **94 transitive packages** (express, hono, jose, ajv — its own HTTP and OAuth transports, which a stdio server never uses). That tree is identical for every MCP server built on the official SDK. Our contribution to it is zero packages. The alternative — hand-rolling JSON-RPC over stdio for a zero-dependency tree — was rejected, because a reviewer is more likely to trust the official SDK than a homemade transport.
-- No `postinstall` / `prepare` / `preinstall` scripts. Lockfile committed. `engines.node >= 20`. `files: ["dist", "README.md", "LICENSE"]` — the tarball is 30.4 kB across 20 files.
+- No `postinstall` / `prepare` / `preinstall` scripts. Lockfile committed. `engines.node >= 20`. `files: ["dist", "README.md", "LICENSE"]` — the tarball is 40.2 kB across 23 files.
 - Published with `npm publish --provenance` from GitHub Actions over OIDC, with 2FA on the account. Provenance is visible on the package page and ties the artifact to a commit.
 - The git tag equals the npm version. No re-publishing over a released version.
 
@@ -94,7 +94,7 @@ The tool reads a public address and nothing else. No key, no signature, no trans
 
 ## T5. Resource exhaustion
 
-- 7 s timeout per request with `AbortController`; one retry at 5 s for transient failures (timeout, dropped connection, 429, 5xx). Permanent errors — 404, wrong host, malformed JSON — are not retried. Worst case ≈ 12.3 s.
+- 7 s timeout per request with `AbortController`; one retry with the same 7 s budget for transient failures (timeout, dropped connection, 429, 5xx). Permanent errors — 404, wrong host, malformed JSON — are not retried. Worst case ≈ 14.3 s: the retry is not given less time than the first attempt, because the largest response here is 11 MB and a shorter second attempt would be guaranteed to fail.
 - A stale cache survives a source outage: the previous answer is returned marked `REFRESH FAILED, this is N min old`. Degrades rather than dies, and never lies about freshness.
 - Response size cap 25 MB (`/pools` alone is 11 MB, so the usual 5 MB would break the main tool).
 - 60 s cache per endpoint.
@@ -116,7 +116,7 @@ MIT. The README states plainly: `unofficial · community-built · not affiliated
 
 ## The audit is mechanical
 
-`npm run audit` runs in CI before publishing and fails the build if any claim in the README stops being true. Nineteen rules in five groups:
+`npm run audit` runs in CI before publishing and fails the build if any claim in the README stops being true. Nineteen rules in five groups, alongside `npm run preflight`, which fails if the repository itself ever contains something that was never meant to be public:
 
 **Capability** — no filesystem, no processes, no sockets or listening ports, no runtime code execution (`eval`, `new Function`, `vm`), no environment variables, no crypto, signing or key handling.
 
@@ -137,7 +137,7 @@ The point is narrow. A promise resting only on the author's good faith is worth 
 - No `description` field is read by any client — the word does not occur in `src/clients/`
 - The host list in `http.ts` has exactly four entries
 - `package.json` has no lifecycle scripts; two direct dependencies
-- `npm pack` contains only `dist/`, README and LICENSE — 30.4 kB, 20 files
+- `npm pack` contains only `dist/`, README and LICENSE — 40.2 kB, 23 files
 - No `console.log` reaches stdout; `scripts/stdio-check.mjs` fails if anything non-JSON does
 - Behaviour with the network down: a sentence, not a stack trace, and never `0.00%` in place of unknown
 - Sanitiser: 8 checks including bidi characters, pipes, and an attempt to escape a code fence

@@ -205,6 +205,45 @@ export async function getPredictedFundings(): Promise<Fetched<Map<string, VenueF
   });
 }
 
+export interface FundingPoint {
+  time: number;
+  /** Rate for that hour, as a fraction. Multiply by 24 * 365 for the annualised figure. */
+  rate: number;
+  premium: number | null;
+}
+
+/**
+ * Hourly funding for one market.
+ *
+ * A snapshot answers "what is funding now", which is the wrong question for
+ * anyone deciding whether to hold a basis position: a single hour is noise.
+ * What matters is whether the sign has held, and the API returns one point per
+ * hour, so a week is 168 of them.
+ */
+export async function getFundingHistory(
+  coin: string,
+  hours: number,
+  now: number,
+): Promise<Fetched<FundingPoint[]>> {
+  const startTime = now - hours * 3_600_000;
+  return cached(`hl:fundingHistory:${coin}:${hours}`, async () => {
+    const raw = await fetchJson<unknown[]>(INFO_URL, {
+      source: SOURCE,
+      method: "POST",
+      body: { type: "fundingHistory", coin, startTime },
+    });
+    const points: FundingPoint[] = [];
+    for (const row of Array.isArray(raw) ? raw : []) {
+      const r = (row ?? {}) as Record<string, unknown>;
+      const rate = num(r["fundingRate"]);
+      const time = num(r["time"]);
+      if (rate === null || time === null) continue;
+      points.push({ time, rate, premium: num(r["premium"]) });
+    }
+    return points.sort((a, b) => a.time - b.time);
+  });
+}
+
 export async function getValidators(): Promise<Fetched<Validator[]>> {
   return cached("hl:validatorSummaries", async () => {
     const raw = await fetchJson<unknown[]>(INFO_URL, {

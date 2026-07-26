@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import * as hlFunding from "./tools/hl_funding.js";
 import * as hlMarket from "./tools/hl_market.js";
 import * as hlStaking from "./tools/hl_staking.js";
+import * as fees from "./tools/hyperevm_fees.js";
+import * as poolHistory from "./tools/hyperevm_pool_history.js";
 import * as protocols from "./tools/hyperevm_protocols.js";
 import * as wallet from "./tools/hyperevm_wallet.js";
 import * as yields from "./tools/hyperevm_yields.js";
@@ -19,7 +22,7 @@ import { registerPrompts } from "./prompts.js";
  * stdout belongs to the MCP protocol. Anything diagnostic goes to stderr.
  */
 
-const VERSION = "1.1.0";
+const VERSION = "1.2.0";
 
 /** Every tool is read-only and touches only public endpoints. */
 const READ_ONLY = {
@@ -85,6 +88,39 @@ async function main(): Promise<void> {
       annotations: { title: "Hyperliquid wallet", ...READ_ONLY },
     },
     async (args) => text(await guard(wallet.name, () => wallet.run(args))),
+  );
+
+  server.registerTool(
+    poolHistory.name,
+    {
+      title: "Pool history",
+      description: poolHistory.description,
+      inputSchema: poolHistory.inputSchema,
+      annotations: { title: "Pool history", ...READ_ONLY },
+    },
+    async (args) => text(await guard(poolHistory.name, () => poolHistory.run(args))),
+  );
+
+  server.registerTool(
+    fees.name,
+    {
+      title: "HyperEVM fees",
+      description: fees.description,
+      inputSchema: fees.inputSchema,
+      annotations: { title: "HyperEVM fees", ...READ_ONLY },
+    },
+    async (args) => text(await guard(fees.name, () => fees.run(args))),
+  );
+
+  server.registerTool(
+    hlFunding.name,
+    {
+      title: "Funding history",
+      description: hlFunding.description,
+      inputSchema: hlFunding.inputSchema,
+      annotations: { title: "Funding history", ...READ_ONLY },
+    },
+    async (args) => text(await guard(hlFunding.name, () => hlFunding.run(args))),
   );
 
   registerPrompts(server);
