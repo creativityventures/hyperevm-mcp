@@ -1,0 +1,35 @@
+name: publish to the MCP registry
+
+# Separate from publish.yml on purpose. The npm publish there is not repeatable
+# — a version can only be pushed once — so the registry entry needs its own
+# trigger, both to be re-runnable by hand and to keep a registry failure from
+# looking like an npm failure.
+#
+# Authentication is OIDC: GitHub proves to the registry that this workflow runs
+# in sand0vvv/hyperevm-mcp, which is what entitles it to the
+# io.github.sand0vvv/* namespace. No token is stored anywhere for this.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # required for OIDC authentication to the registry
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+
+      - name: Authenticate to the registry
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish
+        run: ./mcp-publisher publish
