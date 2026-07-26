@@ -256,7 +256,7 @@ Individually:
 
 ```bash
 npm run build
-node --test "test/*.test.mjs"   # units: numbers, tables, the sanitiser, the cache
+node scripts/test.mjs           # units: numbers, tables, the sanitiser, the cache
 npm run check     # behaviour: injection end-to-end, allowlist, retry, stale fallback, outage
 npm run audit     # enforces every claim in this README against the source
 npm run preflight # fails if this repository contains anything that should not be public

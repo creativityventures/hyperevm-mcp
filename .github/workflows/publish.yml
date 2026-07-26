@@ -18,9 +18,9 @@ jobs:
       contents: read
       id-token: write # required for npm provenance
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
@@ -30,7 +30,7 @@ jobs:
       - run: npm run build
 
       - name: Unit tests
-        run: node --test "test/*.test.mjs"
+        run: node scripts/test.mjs
 
       - name: Self-audit — enforces every claim the README makes
         run: node scripts/audit.mjs
