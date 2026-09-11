@@ -1,3 +1,7 @@
+## Parcours français
+
+Une lecture de sécurité du serveur MCP HyperEVM — capacités, réseau, données hostiles et invariants vérifiables — est disponible dans [docs/fr/](docs/fr/).
+
 # hyperevm-mcp
 
 **Ask your AI assistant about the Hyperliquid ecosystem in plain English.**
